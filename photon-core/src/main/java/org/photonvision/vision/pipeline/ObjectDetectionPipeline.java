@@ -106,9 +106,9 @@ public class ObjectDetectionPipeline
 
         // ***************** change based on backend ***********************
 
-        CVPipeResult<List<NeuralNetworkPipeResult>> rknnResult =
+        CVPipeResult<List<NeuralNetworkPipeResult>> nnResult =
                 objectDetectorPipe.run(frame.colorImage);
-        sumPipeNanosElapsed += rknnResult.nanosElapsed;
+        sumPipeNanosElapsed += nnResult.nanosElapsed;
 
         var names = objectDetectorPipe.getClassNames();
 
@@ -116,7 +116,7 @@ public class ObjectDetectionPipeline
 
         // ***************** change based on backend ***********************
 
-        var filterContoursResult = filterContoursPipe.run(rknnResult.output);
+        var filterContoursResult = filterContoursPipe.run(nnResult.output);
         sumPipeNanosElapsed += filterContoursResult.nanosElapsed;
 
         CVPipeResult<List<PotentialTarget>> sortContoursResult =

@@ -70,7 +70,7 @@ public class RknnModel implements Model {
         this.modelFile = modelFile;
 
         // parseRKNNName throws an IllegalArgumentException if the model name is invalid
-        String[] parts = RknnModel.parseRKNNName(modelFile.getName());
+        String[] parts = RknnModel.parseModelName(modelFile.getName());
 
         this.version = getModelVersion(parts[3]);
 
@@ -108,7 +108,7 @@ public class RknnModel implements Model {
      * @param labelsName the name of the labels file
      * @throws IllegalArgumentException if the names are invalid
      */
-    public static void verifyRKNNNames(String modelName, String labelsName) {
+    public static void verifyNames(String modelName, String labelsName) {
         // check null
         if (modelName == null || labelsName == null) {
             throw new IllegalArgumentException("Model name and labels name cannot be null");
@@ -142,7 +142,7 @@ public class RknnModel implements Model {
      * @throws IllegalArgumentException if the model name does not follow the naming convention
      * @return an array containing the name, width, height, and model type
      */
-    public static String[] parseRKNNName(String modelName) {
+    public static String[] parseModelName(String modelName) {
         Matcher modelMatcher = modelPattern.matcher(modelName);
 
         if (!modelMatcher.matches()) {

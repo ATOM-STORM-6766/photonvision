@@ -56,8 +56,6 @@ import org.photonvision.common.util.file.ProgramDirectoryUtilities;
 import org.photonvision.vision.calibration.CameraCalibrationCoefficients;
 import org.photonvision.vision.camera.CameraQuirk;
 import org.photonvision.vision.camera.PVCameraInfo;
-import org.photonvision.vision.objects.CoreMLModel;
-import org.photonvision.vision.objects.RknnModel;
 import org.photonvision.vision.processes.VisionSourceManager;
 import org.zeroturnaround.zip.ZipUtil;
 
@@ -552,11 +550,10 @@ public class RequestHandler {
     public static void onImportObjectDetectionModelRequest(Context ctx) {
         try {
             // Retrieve the uploaded files
-            var rknnFile = ctx.uploadedFile("rknn");
-            var mlmodelFile = ctx.uploadedFile("mlmodel");
+            var modelFile = ctx.uploadedFile("model");
             var labelsFile = ctx.uploadedFile("labels");
 
-            if ((rknnFile == null && mlmodelFile == null) || labelsFile == null) {
+            if (modelFile == null || labelsFile == null) {
                 ctx.status(400);
                 ctx.result(
                         "No File was sent with the request. Make sure that the model and labels files are sent at the keys 'rknn'/'mlmodel' and 'labels'");
@@ -565,45 +562,19 @@ public class RequestHandler {
                 return;
             }
 
-            var modelFile = rknnFile != null ? rknnFile : mlmodelFile;
-
-            if (!modelFile.extension().contains("rknn") && !modelFile.extension().contains("mlmodel")
-                    || !labelsFile.extension().contains("txt")) {
+            // 统一模型和标签文件校验
+            var validationError =
+                    NeuralNetworkModelManager.getInstance().validateModelAndLabels(modelFile, labelsFile);
+            if (validationError.isPresent()) {
                 ctx.status(400);
-                ctx.result(
-                        "The uploaded files were not of type 'rknn'/'mlmodel' and 'txt'. The uploaded files should be a .rknn/.mlmodel and .txt file.");
-                logger.error(
-                        "The uploaded files were not of type 'rknn'/'mlmodel' and 'txt'. The uploaded files should be a .rknn/.mlmodel and .txt file.");
+                ctx.result(validationError.get());
+                logger.error(validationError.get());
                 return;
             }
 
-            // verify naming convention
-
-            // throws IllegalArgumentException if the model name is invalid
-            if (modelFile.extension().contains("rknn")) {
-                RknnModel.verifyRKNNNames(modelFile.filename(), labelsFile.filename());
-            } else if (modelFile.extension().contains("mlmodel")) {
-                CoreMLModel.verifyCoreMLNames(modelFile.filename(), labelsFile.filename());
-            } else {
-                throw new IllegalArgumentException("Invalid model file extension");
-            }
-
-            // TODO move into neural network manager
-
-            var modelPath =
-                    Paths.get(
-                            ConfigManager.getInstance().getModelsDirectory().toString(), modelFile.filename());
-            var labelsPath =
-                    Paths.get(
-                            ConfigManager.getInstance().getModelsDirectory().toString(), labelsFile.filename());
-
-            try (FileOutputStream out = new FileOutputStream(modelPath.toFile())) {
-                modelFile.content().transferTo(out);
-            }
-
-            try (FileOutputStream out = new FileOutputStream(labelsPath.toFile())) {
-                labelsFile.content().transferTo(out);
-            }
+            NeuralNetworkModelManager.getInstance()
+                    .saveUploadedModelAndLabels(
+                            modelFile, labelsFile, ConfigManager.getInstance().getModelsDirectory());
 
             NeuralNetworkModelManager.getInstance()
                     .discoverModels(ConfigManager.getInstance().getModelsDirectory());

@@ -17,12 +17,16 @@
 
 package org.photonvision.common.configuration;
 
+import io.javalin.http.UploadedFile;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,6 +102,20 @@ public class NeuralNetworkModelManager {
 
         private NeuralNetworkBackend(String format) {
             this.format = format;
+        }
+
+        public static Optional<NeuralNetworkBackend> fromExtension(String extension) {
+            if (extension == null) return Optional.empty();
+            String extWithDot = extension.startsWith(".") ? extension : "." + extension;
+
+            switch (extWithDot) {
+                case ".rknn":
+                    return Optional.of(NeuralNetworkBackend.RKNN);
+                case ".mlmodel":
+                    return Optional.of(NeuralNetworkBackend.COREML);
+                default:
+                    return Optional.empty();
+            }
         }
     }
 
@@ -176,11 +194,12 @@ public class NeuralNetworkModelManager {
             return Optional.empty();
         }
 
-        if (supportedBackends.isEmpty()) {
+        ArrayList<Model> backendModels = models.get(supportedBackends.get(0));
+        if (backendModels == null || backendModels.isEmpty()) {
             return Optional.empty();
         }
 
-        return models.get(supportedBackends.get(0)).stream().findFirst();
+        return backendModels.stream().findFirst();
     }
 
     private void loadModel(File model) {
@@ -227,6 +246,59 @@ public class NeuralNetworkModelManager {
         } catch (IOException e) {
             logger.error("Failed to read labels for model " + model.getName(), e);
         }
+    }
+
+    /**
+     * Validates the legality of the model file and label file, including type, extension, naming
+     * conventions, etc.
+     *
+     * @param modelFile The uploaded model file
+     * @param labelsFile The uploaded label file
+     * @return Optional<String>, returns error message if any error occurs, otherwise Optional.empty()
+     */
+    public Optional<String> validateModelAndLabels(UploadedFile modelFile, UploadedFile labelsFile) {
+        // Check if the model file type is supported
+        boolean modelSupported =
+                supportedBackends.stream()
+                        .anyMatch(b -> modelFile.extension().toLowerCase().contains(b.format));
+        String supportedTypes = String.join(", ", getSupportedBackends());
+
+        if (!modelSupported) {
+            String msg =
+                    "Unsupported model file format. The model file must be one of: " + supportedTypes;
+            logger.error(msg);
+            return Optional.of(msg);
+        }
+        // Check label file type
+        if (!labelsFile.extension().toLowerCase().contains("txt")) {
+            String msg = "The labels file must be a .txt file";
+            logger.error(msg);
+            return Optional.of(msg);
+        }
+
+        // Check naming conventions
+        try {
+            var modelExtension = NeuralNetworkBackend.fromExtension(modelFile.extension());
+            if (!modelExtension.isPresent()) {
+                String msg = "Unsupported model file format. The model file must be one of: " + supportedTypes;
+                logger.error(msg);
+                return Optional.of(msg);
+            }
+
+            switch (modelExtension.get()) {
+                case RKNN:
+                    RknnModel.verifyNames(modelFile.filename(), labelsFile.filename());
+                    break;
+                case COREML:
+                    CoreMLModel.verifyNames(modelFile.filename(), labelsFile.filename());
+                    break;
+            }
+        } catch (IllegalArgumentException e) {
+            logger.error("Failed to verify model name", e);
+            String msg = "Invalid model or label file name";
+            return Optional.of(msg);
+        }
+        return Optional.empty();
     }
 
     /**
@@ -310,6 +382,28 @@ public class NeuralNetworkModelManager {
             }
         } catch (IOException | URISyntaxException e) {
             logger.error("Error extracting models", e);
+        }
+    }
+
+    /**
+     * Save the uploaded model file and label file to the specified directory.
+     *
+     * @param modelFile The uploaded model file
+     * @param labelsFile The uploaded label file
+     * @param modelsDirectory The directory to save files
+     * @throws IOException If file saving fails
+     */
+    public void saveUploadedModelAndLabels(
+            UploadedFile modelFile, UploadedFile labelsFile, File modelsDirectory) throws IOException {
+
+        Path modelPath = Paths.get(modelsDirectory.toString(), modelFile.filename());
+        Path labelsPath = Paths.get(modelsDirectory.toString(), labelsFile.filename());
+
+        try (OutputStream out = new FileOutputStream(modelPath.toFile())) {
+            modelFile.content().transferTo(out);
+        }
+        try (OutputStream out = new FileOutputStream(labelsPath.toFile())) {
+            labelsFile.content().transferTo(out);
         }
     }
 }

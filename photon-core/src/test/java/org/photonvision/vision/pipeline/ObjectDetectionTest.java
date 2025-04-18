@@ -98,7 +98,7 @@ public class ObjectDetectionTest {
     @ParameterizedTest
     @MethodSource("verifyPassNameProvider")
     public void testRKNNVerificationPass(String[] names) {
-        RknnModel.verifyRKNNNames(names[0], names[1]);
+        RknnModel.verifyNames(names[0], names[1]);
     }
 
     // // Test the model name validation for names that ought to fail
@@ -106,14 +106,14 @@ public class ObjectDetectionTest {
     @MethodSource("verifyFailNameProvider")
     public void testRNNVerificationFail(String[] names) {
         assertThrows(
-                IllegalArgumentException.class, () -> RknnModel.verifyRKNNNames(names[0], names[1]));
+                IllegalArgumentException.class, () -> RknnModel.verifyNames(names[0], names[1]));
     }
 
     // Test the model name parsing
     @ParameterizedTest
     @MethodSource("parseNameProvider")
     public void testRKNNNameParsing(String[] expected, String name) {
-        String[] parsed = RknnModel.parseRKNNName(name);
+        String[] parsed = RknnModel.parseModelName(name);
         assertArrayEquals(expected, parsed);
     }
 

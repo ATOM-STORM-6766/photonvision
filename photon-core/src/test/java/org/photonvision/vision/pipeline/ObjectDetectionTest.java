@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.photonvision.common.configuration.NeuralNetworkModelManager;
+import org.photonvision.vision.objects.RknnModel;
 
 public class ObjectDetectionTest {
     private static LinkedList<String[]> passNames =
@@ -98,7 +98,7 @@ public class ObjectDetectionTest {
     @ParameterizedTest
     @MethodSource("verifyPassNameProvider")
     public void testRKNNVerificationPass(String[] names) {
-        NeuralNetworkModelManager.verifyRKNNNames(names[0], names[1]);
+        RknnModel.verifyRKNNNames(names[0], names[1]);
     }
 
     // // Test the model name validation for names that ought to fail
@@ -106,15 +106,14 @@ public class ObjectDetectionTest {
     @MethodSource("verifyFailNameProvider")
     public void testRNNVerificationFail(String[] names) {
         assertThrows(
-                IllegalArgumentException.class,
-                () -> NeuralNetworkModelManager.verifyRKNNNames(names[0], names[1]));
+                IllegalArgumentException.class, () -> RknnModel.verifyRKNNNames(names[0], names[1]));
     }
 
     // Test the model name parsing
     @ParameterizedTest
     @MethodSource("parseNameProvider")
     public void testRKNNNameParsing(String[] expected, String name) {
-        String[] parsed = NeuralNetworkModelManager.parseRKNNName(name);
+        String[] parsed = RknnModel.parseRKNNName(name);
         assertArrayEquals(expected, parsed);
     }
 

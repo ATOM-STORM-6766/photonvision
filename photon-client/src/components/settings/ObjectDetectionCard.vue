@@ -6,14 +6,20 @@ import { useSettingsStore } from "@/stores/settings/GeneralSettingsStore";
 
 const showImportDialog = ref(false);
 const importRKNNFile = ref<File | null>(null);
+const importMLModelFile = ref<File | null>(null);
 const importLabelsFile = ref<File | null>(null);
 
 // TODO gray out the button when model is uploading
 const handleImport = async () => {
-  if (importRKNNFile.value === null || importLabelsFile.value === null) return;
+  if ((importRKNNFile.value === null && importMLModelFile.value === null) || importLabelsFile.value === null) return;
 
   const formData = new FormData();
-  formData.append("rknn", importRKNNFile.value);
+  if (importRKNNFile.value) {
+    formData.append("rknn", importRKNNFile.value);
+  }
+  if (importMLModelFile.value) {
+    formData.append("mlmodel", importMLModelFile.value);
+  }
   formData.append("labels", importLabelsFile.value);
 
   useStateStore().showSnackbarMessage({
@@ -54,6 +60,7 @@ const handleImport = async () => {
   showImportDialog.value = false;
 
   importRKNNFile.value = null;
+  importMLModelFile.value = null;
   importLabelsFile.value = null;
 };
 
@@ -80,6 +87,7 @@ const supportedModels = computed(() => {
             @input="
               () => {
                 importRKNNFile = null;
+                importMLModelFile = null;
                 importLabelsFile = null;
               }
             "
@@ -87,15 +95,30 @@ const supportedModels = computed(() => {
             <v-card color="primary" dark>
               <v-card-title>Import New Object Detection Model</v-card-title>
               <v-card-text>
-                Upload a new object detection model to this device that can be used in a pipeline. Naming convention
-                should be <code>name-verticalResolution-horizontalResolution-yolovXXX</code>. The
-                <code>name</code> should only include alphanumeric characters, periods, and underscores. Additionally,
-                the labels file ought to have the same name as the RKNN file, with <code>-labels</code> appended to the
-                end. For example, if the RKNN file is named <code>note-640-640-yolov5s.rknn</code>, the labels file
-                should be named <code>note-640-640-yolov5s-labels.txt</code>. Note that ONLY 640x640 YOLOv5, YOLOv8, and
-                YOLOv11 models trained and converted to `.rknn` format for RK3588 CPUs are currently supported!
+                Upload a new object detection model to this device that can be used in a pipeline.
+                <br /><br />
+                For RKNN models: Naming convention should be
+                <code>name-verticalResolution-horizontalResolution-yolovXXX</code>. The <code>name</code> should only
+                include alphanumeric characters, periods, and underscores. <br /><br />
+                For MLModel files: Use standard Core ML model format with appropriate naming.
+                <br /><br />
+                The labels file ought to have the same name as the model file, with <code>-labels</code> appended to the
+                end. For example, if the model file is named <code>note-640-640-yolov5s.rknn</code> or
+                <code>model.mlmodel</code>, the labels file should be named
+                <code>note-640-640-yolov5s-labels.txt</code> or <code>model-labels.txt</code> respectively. <br /><br />
+                Note that:
+                <ul>
+                  <li>
+                    For RKNN: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.rknn` format
+                    for RK3588 CPUs are supported!
+                  </li>
+                  <li>For MLModel: Standard Core ML models are supported.</li>
+                </ul>
                 <v-row class="mt-6 ml-4 mr-8">
                   <v-file-input v-model="importRKNNFile" label="RKNN File" accept=".rknn" />
+                </v-row>
+                <v-row class="mt-6 ml-4 mr-8">
+                  <v-file-input v-model="importMLModelFile" label="MLModel File" accept=".mlmodel" />
                 </v-row>
                 <v-row class="mt-6 ml-4 mr-8">
                   <v-file-input v-model="importLabelsFile" label="Labels File" accept=".txt" />
@@ -107,7 +130,7 @@ const supportedModels = computed(() => {
                 >
                   <v-btn
                     color="secondary"
-                    :disabled="importRKNNFile === null || importLabelsFile === null"
+                    :disabled="(importRKNNFile === null && importMLModelFile === null) || importLabelsFile === null"
                     @click="handleImport"
                   >
                     <v-icon left class="open-icon"> mdi-import </v-icon>

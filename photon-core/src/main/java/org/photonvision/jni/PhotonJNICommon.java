@@ -43,7 +43,7 @@ public abstract class PhotonJNICommon {
                 var arch_name = Platform.getNativeLibraryFolderName();
                 var nativeLibName = System.mapLibraryName(libraryName);
                 var in = clazz.getResourceAsStream("/nativelibraries/" + arch_name + "/" + nativeLibName);
-
+                System.out.println("Loading native library by resource " + "/nativelibraries/" + arch_name + "/" + nativeLibName + " " + (in == null ? "null" : "not null"));
                 if (in == null) {
                     instance.setLoaded(false);
                     return;
@@ -60,6 +60,8 @@ public abstract class PhotonJNICommon {
                 }
                 fos.close();
                 in.close();
+
+                System.out.println("Loading native library by temp " + "/nativelibraries/" + arch_name + "/" + nativeLibName + " " + temp.getAbsolutePath());
 
                 System.load(temp.getAbsolutePath());
 

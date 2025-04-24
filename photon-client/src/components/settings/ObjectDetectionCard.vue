@@ -83,14 +83,10 @@ const handleImport = async () => {
 const supportedModels = computed(() => {
   const { availableModels, supportedBackends } = settingsStore.general;
 
-  if (!supportedBackends || !Array.isArray(supportedBackends) || !availableModels) {
-    return [];
-  }
+  console.log("availableModels", availableModels);
+  console.log("supportedBackends", supportedBackends);
 
-  return (supportedBackends as NeuralNetworkBackendInfo[]).flatMap((backendInfo) => {
-    const modelsList = Object.keys(availableModels)[backendInfo.name.toLowerCase()];
-    return modelsList ? modelsList : [];
-  });
+  return supportedBackends.flatMap((backend) => availableModels[backend.name] || []);
 });
 </script>
 

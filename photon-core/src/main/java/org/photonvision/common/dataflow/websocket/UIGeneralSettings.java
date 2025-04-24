@@ -20,6 +20,7 @@ package org.photonvision.common.dataflow.websocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.photonvision.common.configuration.ModelFormatHandler;
 
 public class UIGeneralSettings {
     public UIGeneralSettings(
@@ -27,7 +28,7 @@ public class UIGeneralSettings {
             String gpuAcceleration,
             boolean mrCalWorking,
             Map<String, ArrayList<String>> availableModels,
-            List<String> supportedBackends,
+            List<ModelFormatHandler.Info> supportedBackends,
             String hardwareModel,
             String hardwarePlatform) {
         this.version = version;
@@ -43,7 +44,7 @@ public class UIGeneralSettings {
     public String gpuAcceleration;
     public boolean mrCalWorking;
     public Map<String, ArrayList<String>> availableModels;
-    public List<String> supportedBackends;
+    public List<ModelFormatHandler.Info> supportedBackends;
     public String hardwareModel;
     public String hardwarePlatform;
 }

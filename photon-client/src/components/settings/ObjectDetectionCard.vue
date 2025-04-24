@@ -3,7 +3,8 @@ import { ref, computed } from "vue";
 import axios from "axios";
 import { useStateStore } from "@/stores/StateStore";
 import { useSettingsStore } from "@/stores/settings/GeneralSettingsStore";
-import { ObjectDetectionBackend } from "@/types/SettingTypes";
+// Import the type from SettingTypes
+import type { NeuralNetworkBackendInfo } from "@/types/SettingTypes";
 
 const showImportDialog = ref(false);
 const importModelFile = ref<File | null>(null);
@@ -15,13 +16,21 @@ const resetImportFiles = () => {
   importLabelsFile.value = null;
 };
 
-// Dynamically generate accept attribute for model file input
+const settingsStore = useSettingsStore();
+
 const modelAccept = computed(() => {
-  const accepts = useSettingsStore()
-    .general.supportedBackends.map((backend) => ObjectDetectionBackend[backend]?.accept)
+  // Check if supportedBackends is available and is an array
+  if (!settingsStore.general.supportedBackends || !Array.isArray(settingsStore.general.supportedBackends)) {
+    console.warn("supportedBackends not available or not an array");
+    return ""; // Provide a sensible default
+  }
+
+  const accepts = (settingsStore.general.supportedBackends as NeuralNetworkBackendInfo[])
+    .map((backend) => backend.uploadAcceptType)
     .filter(Boolean)
+    .filter((value, index, self) => self.indexOf(value) === index)
     .join(",");
-  console.debug("model accpets", accepts, useSettingsStore().general.supportedBackends);
+
   return accepts;
 });
 
@@ -72,8 +81,16 @@ const handleImport = async () => {
 };
 
 const supportedModels = computed(() => {
-  const { availableModels, supportedBackends } = useSettingsStore().general;
-  return supportedBackends.flatMap((backend) => availableModels[backend] || []);
+  const { availableModels, supportedBackends } = settingsStore.general;
+
+  if (!supportedBackends || !Array.isArray(supportedBackends) || !availableModels) {
+    return [];
+  }
+
+  return (supportedBackends as NeuralNetworkBackendInfo[]).flatMap((backendInfo) => {
+    const modelsList = Object.keys(availableModels)[backendInfo.name.toLowerCase()];
+    return modelsList ? modelsList : [];
+  });
 });
 </script>
 
@@ -94,11 +111,17 @@ const supportedModels = computed(() => {
                 Upload a new object detection model to this device that can be used in a pipeline.
                 <br /><br />
                 Naming convention should be
-                <code>name-verticalResolution-horizontalResolution-yolovXXX.supportedBackend</code>. The
+                <code>name-verticalResolution-horizontalResolution-yolovXXX.backend_extension</code>, where
+                <code>backend_extension</code> is typically <code>.rknn</code> or <code>.mlmodel</code>. For ML
+                Packages, the uploaded zip file should be named
+                <code>name-verticalResolution-horizontalResolution-yolovXXX.mlpackage.zip</code>. The
                 <code>name</code> should only include alphanumeric characters, periods, and underscores. <br /><br />
-                The labels file ought to have the same name as the model file, with <code>-labels</code> appended to the
-                end. For example, if the model file is named <code>note-640-640-yolov5s.rknn</code>, the labels file
-                should be named <code>note-640-640-yolov5s-labels.txt</code> . <br /><br />
+                The labels file ought to have the same name as the model file (or zip file for packages), with
+                <code>-labels.txt</code> appended to the end. For example, if the model file is
+                <code>note-640-640-yolov5s.rknn</code>, the labels file should be named
+                <code>note-640-640-yolov5s-labels.txt</code>. If the package zip is
+                <code>mynote-640-640-yolov8.mlpackage.zip</code>, the labels file should be
+                <code>mynote-640-640-yolov8-labels.txt</code>. <br /><br />
                 Note that:
                 <ul>
                   <li>
@@ -108,6 +131,10 @@ const supportedModels = computed(() => {
                   <li>
                     For MLModel: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.mlmodel`
                     format for Mac series CPUs are supported!
+                  </li>
+                  <li>
+                    For ML Packages (.mlpackage): Upload the model as a <strong><code>.zip</code></strong> file. Only
+                    640x640 YOLOv5, YOLOv8, and YOLOv11 models are currently supported.
                   </li>
                 </ul>
                 <div>

@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (C) Photon Vision.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,9 +29,9 @@ import org.photonvision.coreml.CoreMLJNI;
 import org.photonvision.jni.CoreMLObjectDetector;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.common.logging.LogGroup;
-/** Represents a CoreML model that can be used for object detection. */
-public class CoreMLModel implements Model {
-    private static final Logger logger = new Logger(CoreMLModel.class, LogGroup.Config);
+/** Represents a CoreML *.mlmodel file that can be used for object detection. */
+public class CoreMLFileModel implements Model {
+    private static final Logger logger = new Logger(CoreMLFileModel.class, LogGroup.Config);
 
 
     /** The file containing the model. */
@@ -58,7 +58,7 @@ public class CoreMLModel implements Model {
      * @param modelName The model's filename
      * @return The model version
      */
-    private static CoreMLJNI.ModelVersion getModelVersion(String modelName)
+    public static CoreMLJNI.ModelVersion getModelVersion(String modelName)
             throws IllegalArgumentException {
         if (modelName.contains("yolov5")) {
             return CoreMLJNI.ModelVersion.YOLO_V5;
@@ -78,10 +78,10 @@ public class CoreMLModel implements Model {
      * @param labels The labels that the model can detect.
      * @param version The version of the model.
      */
-    public CoreMLModel(File modelFile, String labels) throws IllegalArgumentException, IOException {
+    public CoreMLFileModel(File modelFile, String labels) throws IllegalArgumentException, IOException {
         this.modelFile = modelFile;
 
-        String[] parts = CoreMLModel.parseModelName(modelFile.getName());
+        String[] parts = CoreMLFileModel.parseModelName(modelFile.getName());
 
         this.version = getModelVersion(parts[3]);
 
@@ -127,7 +127,7 @@ public class CoreMLModel implements Model {
         }
 
         // These patterns check that the naming convention of
-        // name-widthResolution-heightResolution-modelType is followed
+        // name-widthResolution-heightResolution-modelType.mlmodel is followed
 
         Matcher modelMatcher = modelPattern.matcher(modelName);
         Matcher labelsMatcher = labelsPattern.matcher(labelsName);

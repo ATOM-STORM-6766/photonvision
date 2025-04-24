@@ -27,7 +27,7 @@ import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.common.util.ColorHelper;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLModel;
+import org.photonvision.vision.objects.CoreMLFileModel;
 import org.photonvision.vision.objects.Letterbox;
 import org.photonvision.vision.objects.ObjectDetector;
 import org.photonvision.vision.pipe.impl.NeuralNetworkPipeResult;
@@ -45,13 +45,13 @@ public class CoreMLObjectDetector implements ObjectDetector {
     /** Pointer to the native object */
     private final long objPointer;
 
-    private final CoreMLModel model;
+    private final CoreMLFileModel model;
 
     private final Size inputSize;
 
     /** Returns the model in use by this detector. */
     @Override
-    public CoreMLModel getModel() {
+    public CoreMLFileModel getModel() {
         return model;
     }
 
@@ -62,14 +62,14 @@ public class CoreMLObjectDetector implements ObjectDetector {
      * @param inputSize The required image dimensions for the model. Images will be {@link
      *     Letterbox}ed to this shape.
      */
-    public CoreMLObjectDetector(CoreMLModel model, Size inputSize) {
+    public CoreMLObjectDetector(CoreMLFileModel model, Size inputSize) {
         this.model = model;
         this.inputSize = inputSize;
 
         // Create the detector
         objPointer =
                 CoreMLJNI.create(
-                        model.modelFile.getPath(), model.labels.size(), model.version.ordinal(), -1);
+                        model.modelFile.getPath(), model.labels.size(), model.version.ordinal(), CoreMLJNI.CoreMask.ALL.ordinal());
         if (objPointer <= 0) {
             throw new RuntimeException(
                     "Failed to create detector from path " + model.modelFile.getPath());

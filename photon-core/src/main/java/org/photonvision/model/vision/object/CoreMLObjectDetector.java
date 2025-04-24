@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.photonvision.jni;
+package org.photonvision.model.vision.object;
 
 import java.awt.Color;
 import java.lang.ref.Cleaner;
@@ -27,9 +27,9 @@ import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.common.util.ColorHelper;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLModel;
+import org.photonvision.model.jni.CoreMLDetectorJNI;
+import org.photonvision.model.vision.CoreMLModel;
 import org.photonvision.vision.objects.Letterbox;
-import org.photonvision.vision.objects.ObjectDetector;
 import org.photonvision.vision.pipe.impl.NeuralNetworkPipeResult;
 
 /** Manages an object detector using the CoreML backend. */

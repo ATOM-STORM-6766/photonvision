@@ -1,4 +1,4 @@
-package org.photonvision.common.configuration;
+package org.photonvision.model.format;
 
 import io.javalin.http.UploadedFile;
 import java.io.File;
@@ -20,8 +20,8 @@ import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLModel;
-import org.photonvision.vision.objects.Model;
+import org.photonvision.model.vision.CoreMLModel;
+import org.photonvision.model.vision.Model;
 
 
 public class CoreMLPackageFormatHandler implements ModelFormatHandler {

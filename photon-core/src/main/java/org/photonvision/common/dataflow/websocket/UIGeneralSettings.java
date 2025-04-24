@@ -20,7 +20,7 @@ package org.photonvision.common.dataflow.websocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.photonvision.common.configuration.ModelFormatHandler;
+import org.photonvision.model.format.ModelFormatHandler;
 
 public class UIGeneralSettings {
     public UIGeneralSettings(

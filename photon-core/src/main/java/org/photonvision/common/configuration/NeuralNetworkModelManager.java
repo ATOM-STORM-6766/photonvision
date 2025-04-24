@@ -39,7 +39,11 @@ import java.util.jar.JarFile;
 import org.photonvision.common.hardware.Platform;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
-import org.photonvision.vision.objects.Model;
+import org.photonvision.model.format.CoreMLFileFormatHandler;
+import org.photonvision.model.format.CoreMLPackageFormatHandler;
+import org.photonvision.model.format.ModelFormatHandler;
+import org.photonvision.model.format.RknnFormatHandler;
+import org.photonvision.model.vision.Model;
 
 /**
  * Manages the loading of neural network models.

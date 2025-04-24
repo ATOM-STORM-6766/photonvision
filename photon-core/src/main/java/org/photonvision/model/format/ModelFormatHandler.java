@@ -1,11 +1,11 @@
-package org.photonvision.common.configuration;
+package org.photonvision.model.format;
 
 import io.javalin.http.UploadedFile;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
-import org.photonvision.vision.objects.Model;
+import org.photonvision.model.vision.Model;
 
 /**
  * Interface defining the contract for handling a specific neural network model format.

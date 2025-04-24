@@ -1,4 +1,4 @@
-package org.photonvision.vision.objects;
+package org.photonvision.model.vision;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7,7 +7,8 @@ import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.jni.CoreMLObjectDetector;
+import org.photonvision.model.vision.object.CoreMLObjectDetector;
+import org.photonvision.model.vision.object.ObjectDetector;
 
 /** 
  * Represents a CoreML model that can be used for object detection.
@@ -73,7 +74,7 @@ public class CoreMLModel implements Model {
     }
 
     @Override
-    public ObjectDetector load() {
+    public ObjectDetector loadToObjectDetector() {
         // Check path exists before loading
         if (isPackage ? !Files.isDirectory(modelPath) : !Files.isRegularFile(modelPath)) {
             logger.error("Model " + (isPackage ? "directory" : "file") + 

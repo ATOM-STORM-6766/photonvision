@@ -15,12 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.photonvision.vision.objects;
+package org.photonvision.model.vision;
 
 import java.io.File;
 import java.util.List;
 import org.opencv.core.Size;
-import org.photonvision.jni.RknnObjectDetector;
+import org.photonvision.model.vision.object.ObjectDetector;
+import org.photonvision.model.vision.object.RknnObjectDetector;
 import org.photonvision.rknn.RknnJNI;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
@@ -61,7 +62,7 @@ public class RknnModel implements Model {
     }
 
     @Override
-    public ObjectDetector load() {
+    public ObjectDetector loadToObjectDetector() {
          if (!modelFile.exists()) {
              logger.error("Model file does not exist when trying to load: " + modelFile.getPath());
              return null; // Or handle error appropriately

@@ -27,7 +27,7 @@ import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.common.util.ColorHelper;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLFileModel;
+import org.photonvision.vision.objects.CoreMLModel;
 import org.photonvision.vision.objects.Letterbox;
 import org.photonvision.vision.objects.ObjectDetector;
 import org.photonvision.vision.pipe.impl.NeuralNetworkPipeResult;
@@ -45,13 +45,13 @@ public class CoreMLObjectDetector implements ObjectDetector {
     /** Pointer to the native object */
     private final long objPointer;
 
-    private final CoreMLFileModel model;
+    private final CoreMLModel model;
 
     private final Size inputSize;
 
     /** Returns the model in use by this detector. */
     @Override
-    public CoreMLFileModel getModel() {
+    public CoreMLModel getModel() {
         return model;
     }
 
@@ -62,20 +62,24 @@ public class CoreMLObjectDetector implements ObjectDetector {
      * @param inputSize The required image dimensions for the model. Images will be {@link
      *     Letterbox}ed to this shape.
      */
-    public CoreMLObjectDetector(CoreMLFileModel model, Size inputSize) {
+    public CoreMLObjectDetector(CoreMLModel model, Size inputSize) {
         this.model = model;
         this.inputSize = inputSize;
 
+        // Get the string path based on whether it's a file or package
+        String modelPathStr = model.modelPath.toString();
+        
         // Create the detector
         objPointer =
                 CoreMLJNI.create(
-                        model.modelFile.getPath(), model.labels.size(), model.version.ordinal(), CoreMLJNI.CoreMask.ALL.ordinal());
+                        modelPathStr, model.labels.size(), model.version.ordinal(), CoreMLJNI.CoreMask.ALL.ordinal());
         if (objPointer <= 0) {
             throw new RuntimeException(
-                    "Failed to create detector from path " + model.modelFile.getPath());
+                    "Failed to create detector from path " + modelPathStr);
         }
 
-        logger.debug("Created detector for model " + model.modelFile.getName());
+        logger.debug("Created detector for model " + model.getName() + 
+                     " (type: " + (model.isPackage ? "package" : "file") + ")");
 
         // Register the cleaner to release the detector when it goes out of scope
         cleaner.register(this, this::release);
@@ -104,7 +108,7 @@ public class CoreMLObjectDetector implements ObjectDetector {
     public List<NeuralNetworkPipeResult> detect(Mat in, double nmsThresh, double boxThresh) {
         if (objPointer <= 0) {
             // Report error and make sure to include the model name
-            logger.error("Detector is not initialized! Model: " + model.modelFile.getName());
+            logger.error("Detector is not initialized! Model: " + model.getName());
             return List.of();
         }
 
@@ -141,12 +145,12 @@ public class CoreMLObjectDetector implements ObjectDetector {
             if (objPointer <= 0) {
                 logger.error(
                         "Detector is not initialized, and so it can't be released! Model: "
-                                + model.modelFile.getName());
+                                + model.getName());
                 return;
             }
 
             CoreMLJNI.destroy(objPointer);
-            logger.debug("Released detector for model " + model.modelFile.getName());
+            logger.debug("Released detector for model " + model.getName());
         }
     }
 }

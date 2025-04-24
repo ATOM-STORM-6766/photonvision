@@ -20,18 +20,17 @@ import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLPackageModel;
+import org.photonvision.vision.objects.CoreMLModel;
 import org.photonvision.vision.objects.Model;
-// Consider adding FileUtils if robust directory deletion on failure is needed
-// import org.apache.commons.io.FileUtils;
+
 
 public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
     private static final Logger logger = new Logger(CoreMLPackageFormatHandler.class, LogGroup.Config);
     private static final String BACKEND_NAME = "COREML_PACKAGE";
     private static final String PRIMARY_EXTENSION = ".mlpackage";
-    private static final String UPLOAD_EXTENSION = ".mlpackage.zip";
-    private static final Class<? extends Model> MODEL_CLASS = CoreMLPackageModel.class;
+    private static final String UPLOAD_EXTENSION = ".zip";
+    private static final Class<? extends Model> MODEL_CLASS = CoreMLModel.class;
 
     // Naming convention patterns
     // Zip: name-width-height-version.mlpackage.zip
@@ -84,7 +83,7 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
     @Override
     public Info getInfo() {
-        return new Info(getBackendName(), UPLOAD_EXTENSION + ", .txt");
+        return new Info(getBackendName(), getUploadAcceptType());
     }
 
     @Override
@@ -199,12 +198,12 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
             throw new IOException("Failed to read labels file: " + labelsPath, e);
         }
 
-        // 4. Create the CoreMLPackageModel instance
+        // 4. Create the CoreMLModel instance
         try {
-             // Pass the packagePath itself, which CoreMLPackageModel now expects
-             return new CoreMLPackageModel(packagePath, labels, parsedInfo.version, parsedInfo.inputSize);
+             // Updated to use unified CoreMLModel with isPackage=true
+             return new CoreMLModel(packagePath, true, labels, parsedInfo.version, parsedInfo.inputSize);
         } catch (Exception e) {
-             throw new IOException("Failed to instantiate CoreMLPackageModel for " + packageDirName, e);
+             throw new IOException("Failed to instantiate CoreMLModel for " + packageDirName, e);
         }
     }
 
@@ -319,8 +318,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
     }
 
 
-    // --- Helper Methods --- //
-
     private void ensureDirectoryExists(File directory) throws IOException {
          if (!directory.exists()) {
              if (!directory.mkdirs()) {
@@ -374,6 +371,13 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFilePath))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
+                if (isMacOSMetaData(zipEntry.getName())) {
+                    logger.debug("Skipping macOS metadata entry: " + zipEntry.getName());
+                    zis.closeEntry();
+                    zipEntry = zis.getNextEntry();
+                    continue;
+                }
+                
                 Path newPath = zipSlipProtect(zipEntry, destDirectory); // Prevent Zip Slip vulnerability
                 if (zipEntry.isDirectory()) {
                     if (!Files.isDirectory(newPath)) {
@@ -482,6 +486,15 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
      */
     private String deriveLabelsName(ParsedModelInfo parsedInfo) {
         return parsedInfo.baseName + "-" + parsedInfo.width + "-" + parsedInfo.height + "-" + parsedInfo.versionString + "-labels.txt";
+    }
+
+    /**
+     * Check if the entry name is a macOS metadata file.
+     */
+    private boolean isMacOSMetaData(String entryName) {
+        return entryName.startsWith("__MACOSX/") ||
+               entryName.endsWith("/.DS_Store") ||
+               entryName.equals(".DS_Store");
     }
 
 } 

@@ -212,28 +212,41 @@ public class NeuralNetworkModelManager {
 
         // Use String (backend name) as key
         Map<String, ArrayList<Model>> discoveredModels = new HashMap<>();
+        // Keep track of all processed paths to avoid duplicates
+        List<Path> processedPaths = new ArrayList<>();
 
         try {
-            Files.walk(modelsDirectory.toPath())
-                 .forEach(path -> {
-                     if (path.equals(modelsDirectory.toPath())) return; // Skip root dir itself
-
-                     // Iterate through handlers
-                     for (ModelFormatHandler handler : formatHandlers) {
-                         if (handler.supportsPath(path)) {
-                             logger.info("Path " + path + " supported by handler " + handler.getBackendName());
-                             try {
-                                 Model model = handler.loadFromPath(path, modelsDirectory);
-                                 // Use backend name from handler as key
-                                 discoveredModels.computeIfAbsent(handler.getBackendName(), k -> new ArrayList<>()).add(model);
-                                 logger.info("Successfully loaded model: " + model.getName() + " for backend " + handler.getBackendName());
-                                 break; // Found a handler
-                             } catch (IOException | IllegalArgumentException e) {
-                                 logger.error("Failed to load model from path " + path + " using handler " + handler.getBackendName(), e);
-                             }
-                         }
-                     }
-                 });
+            // 1. First collect all valid paths 
+            List<Path> allPaths = Files.walk(modelsDirectory.toPath())
+                                      .filter(path -> !path.equals(modelsDirectory.toPath())) // Skip root dir itself
+                                      .collect(Collectors.toList());
+            
+            // 2. Process paths with each handler in order of preference
+            for (ModelFormatHandler handler : formatHandlers) {
+                String backendName = handler.getBackendName();
+                
+                // Process each path that hasn't been processed yet and is supported by this handler
+                for (Path path : allPaths) {
+                    if (processedPaths.contains(path)) {
+                        continue; // Skip paths we've already processed
+                    }
+                    
+                    if (handler.supportsPath(path)) {
+                        logger.info("Path " + path + " supported by handler " + backendName);
+                        try {
+                            Model model = handler.loadFromPath(path, modelsDirectory);
+                            // Add to discovered models for this backend
+                            discoveredModels.computeIfAbsent(backendName, k -> new ArrayList<>()).add(model);
+                            // Mark this path as processed
+                            processedPaths.add(path);
+                            
+                            logger.info("Successfully loaded model: " + model.getName() + " for backend " + backendName);
+                        } catch (IOException | IllegalArgumentException e) {
+                            logger.error("Failed to load model from path " + path + " using handler " + backendName, e);
+                        }
+                    }
+                }
+            }
         } catch (IOException e) {
             logger.error("Failed to walk models directory: " + modelsDirectory.getAbsolutePath(), e);
         }

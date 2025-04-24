@@ -15,7 +15,7 @@ import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.coreml.CoreMLJNI;
-import org.photonvision.vision.objects.CoreMLFileModel;
+import org.photonvision.vision.objects.CoreMLModel;
 import org.photonvision.vision.objects.Model;
 
 public class CoreMLFileFormatHandler implements ModelFormatHandler {
@@ -24,7 +24,7 @@ public class CoreMLFileFormatHandler implements ModelFormatHandler {
     private static final String BACKEND_NAME = "COREML_FILE";
     private static final String PRIMARY_EXTENSION = ".mlmodel";
     private static final String UPLOAD_EXTENSION = ".mlmodel";
-    private static final Class<? extends Model> MODEL_CLASS = CoreMLFileModel.class;
+    private static final Class<? extends Model> MODEL_CLASS = CoreMLModel.class;
 
     // Naming convention patterns
     private static final Pattern modelPattern =
@@ -87,7 +87,6 @@ public class CoreMLFileFormatHandler implements ModelFormatHandler {
         } catch (IllegalArgumentException e) {
             return false;
         }
-        // return modelFileName.endsWith(UPLOAD_EXTENSION) && labelsFileName.endsWith("-labels.txt");
     }
 
     @Override
@@ -184,11 +183,12 @@ public class CoreMLFileFormatHandler implements ModelFormatHandler {
             throw new IOException("Failed to read labels file: " + labelsPath, e);
         }
 
-        // 4. Create the CoreMLFileModel instance with parsed info
+        // 4. Create the CoreMLModel instance with parsed info
         try {
-             return new CoreMLFileModel(path.toFile(), labels, parsedInfo.version, parsedInfo.inputSize);
-        } catch (Exception e) { // Catch potential issues in model constructor, though it should be simpler now
-             throw new IOException("Failed to instantiate CoreMLFileModel for " + modelFileName, e);
+             // Updated to use the new unified CoreMLModel
+             return new CoreMLModel(path, false, labels, parsedInfo.version, parsedInfo.inputSize);
+        } catch (Exception e) {
+             throw new IOException("Failed to instantiate CoreMLModel for " + modelFileName, e);
         }
     }
 
@@ -314,6 +314,4 @@ public class CoreMLFileFormatHandler implements ModelFormatHandler {
         }
         return filename.substring(lastDot);
     }
-
-    // Removed old deriveLabelsName(String modelFileName, String modelExtension)
 } 

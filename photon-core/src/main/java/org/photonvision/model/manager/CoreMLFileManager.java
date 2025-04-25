@@ -1,4 +1,4 @@
-package org.photonvision.model.format;
+package org.photonvision.model.manager;
 
 import io.javalin.http.UploadedFile;
 import java.io.File;
@@ -11,45 +11,24 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
-import org.photonvision.rknn.RknnJNI;
+import org.photonvision.coreml.CoreMLJNI;
+import org.photonvision.model.vision.CoreMLModel;
 import org.photonvision.model.vision.Model;
-import org.photonvision.model.vision.RknnModel;
 
-public class RknnFormatHandler implements ModelFormatHandler {
+public class CoreMLFileManager implements ModelManager {
 
-    private static final Logger logger = new Logger(RknnFormatHandler.class, LogGroup.Config);
-    private static final String BACKEND_NAME = "RKNN";
-    private static final String PRIMARY_EXTENSION = ".rknn";
-    private static final String UPLOAD_EXTENSION = ".rknn";
-    private static final Class<? extends Model> MODEL_CLASS = RknnModel.class;
+    private static final Logger logger = new Logger(CoreMLFileManager.class, LogGroup.Config);
+    private static final String BACKEND_NAME = "COREML_FILE";
+    private static final String PRIMARY_EXTENSION = ".mlmodel";
+    private static final String UPLOAD_EXTENSION = ".mlmodel";
+    private static final Class<? extends Model> MODEL_CLASS = CoreMLModel.class;
 
-    // Naming convention patterns
     private static final Pattern modelPattern =
-            Pattern.compile("^([a-zA-Z0-9._-]+)-(\\d+)-(\\d+)-(yolov(?:5|8|11)[nsmlx]*)\\.rknn$");
+            Pattern.compile("^([a-zA-Z0-9._-]+)-(\\d+)-(\\d+)-(yolov(?:5|8|11)[nsmlx]*)\\.mlmodel$");
     private static final Pattern labelsPattern =
             Pattern.compile("^([a-zA-Z0-9._-]+)-(\\d+)-(\\d+)-(yolov(?:5|8|11)[nsmlx]*)-labels\\.txt$");
-
-    // Helper class to hold parsed name components
-    private static class ParsedModelInfo {
-        final String baseName;
-        final int width;
-        final int height;
-        final String versionString;
-        final RknnJNI.ModelVersion version;
-        final Size inputSize;
-
-        ParsedModelInfo(String baseName, int width, int height, String versionString) {
-            this.baseName = baseName;
-            this.width = width;
-            this.height = height;
-            this.versionString = versionString;
-            this.version = parseVersionString(versionString); // Determine enum version
-            this.inputSize = new Size(width, height);
-        }
-    }
 
     @Override
     public String getBackendName() {
@@ -80,18 +59,17 @@ public class RknnFormatHandler implements ModelFormatHandler {
     @Override
     public boolean supportsUpload(String modelFileName, String labelsFileName) {
         if (modelFileName == null || labelsFileName == null) return false;
+        // Use verifyNames logic for consistency, or simple endsWith checks
         try {
             verifyNames(modelFileName, labelsFileName);
             return true;
         } catch (IllegalArgumentException e) {
             return false;
         }
-        // return modelFileName.endsWith(UPLOAD_EXTENSION) && labelsFileName.endsWith("-labels.txt");
     }
 
     @Override
     public Optional<String> validateUpload(UploadedFile modelFile, UploadedFile labelsFile) {
-        // Basic extension check
         String modelExtension = getExtension(modelFile.filename()).toLowerCase();
         String labelsExtension = getExtension(labelsFile.filename()).toLowerCase();
 
@@ -102,7 +80,6 @@ public class RknnFormatHandler implements ModelFormatHandler {
             return Optional.of("Invalid labels file type. Expected '.txt' but got '" + labelsExtension + "'");
         }
 
-        // Deeper validation using naming convention
         try {
             verifyNames(modelFile.filename(), labelsFile.filename());
         } catch (IllegalArgumentException e) {
@@ -114,7 +91,6 @@ public class RknnFormatHandler implements ModelFormatHandler {
 
     @Override
     public void verifyNames(String modelFileName, String labelsFileName) throws IllegalArgumentException {
-        // check null
         if (modelFileName == null || labelsFileName == null) {
             throw new IllegalArgumentException("Model name and labels name cannot be null");
         }
@@ -122,7 +98,7 @@ public class RknnFormatHandler implements ModelFormatHandler {
         Matcher modelMatcher = modelPattern.matcher(modelFileName);
         Matcher labelsMatcher = labelsPattern.matcher(labelsFileName);
 
-        logger.debug("Verifying RKNN names - Model: " + modelFileName + ", Labels: " + labelsFileName);
+        logger.debug("Verifying CoreML names - Model: " + modelFileName + ", Labels: " + labelsFileName);
 
         if (!modelMatcher.matches()) {
             throw new IllegalArgumentException(
@@ -133,7 +109,7 @@ public class RknnFormatHandler implements ModelFormatHandler {
                     "Labels name '" + labelsFileName + "' must follow the convention name-width-height-version-labels.txt");
         }
 
-        // Check if all captured groups match
+        // Check if all captured groups match between the model and txt file names
         if (!modelMatcher.group(1).equals(labelsMatcher.group(1)) // baseName
                 || !modelMatcher.group(2).equals(labelsMatcher.group(2)) // width
                 || !modelMatcher.group(3).equals(labelsMatcher.group(3)) // height
@@ -142,7 +118,7 @@ public class RknnFormatHandler implements ModelFormatHandler {
                 "Model name ('" + modelFileName + ") and labels name ('" + labelsFileName + ") parts must match.");
         }
 
-        // Additionally parse and check numeric parts and version
+        // Additionally parse and check numeric parts
         try {
             parseModelName(modelFileName);
         } catch (IllegalArgumentException e) {
@@ -153,7 +129,7 @@ public class RknnFormatHandler implements ModelFormatHandler {
     @Override
     public Model loadFromPath(Path path, File modelsDirectory) throws IOException, IllegalArgumentException {
         String modelFileName = path.getFileName().toString();
-        logger.info("Loading RKNN model from path: " + path);
+        logger.info("Loading CoreML model from path: " + path);
 
         // 1. Parse model name to get info (implicitly validates format)
         ParsedModelInfo parsedInfo;
@@ -183,11 +159,11 @@ public class RknnFormatHandler implements ModelFormatHandler {
             throw new IOException("Failed to read labels file: " + labelsPath, e);
         }
 
-        // 4. Create the RknnModel instance
+        // 4. Create the CoreMLModel instance with parsed info
         try {
-             return new RknnModel(path.toFile(), labels, parsedInfo.version, parsedInfo.inputSize);
+             return new CoreMLModel(path, false, labels, parseVersionString(parsedInfo.versionString), parsedInfo.inputSize);
         } catch (Exception e) {
-             throw new IOException("Failed to instantiate RknnModel for " + modelFileName, e);
+             throw new IOException("Failed to instantiate CoreMLModel for " + modelFileName, e);
         }
     }
 
@@ -213,39 +189,38 @@ public class RknnFormatHandler implements ModelFormatHandler {
         Path labelsDestPath = modelsDirectory.toPath().resolve(labelsFile.filename());
         Path modelDestPath = modelsDirectory.toPath().resolve(modelFile.filename());
 
-        logger.info("Saving RKNN files to: " + modelsDirectory.getAbsolutePath());
+        logger.info("Saving CoreML files to: " + modelsDirectory.getAbsolutePath());
         logger.debug("Saving labels to: " + labelsDestPath);
         logger.debug("Saving model to: " + modelDestPath);
 
-        // Save labels first
         try (InputStream in = labelsFile.content(); OutputStream out = Files.newOutputStream(labelsDestPath)) {
             in.transferTo(out);
         } catch (IOException e) {
-            throw new IOException("Failed to save RKNN labels file: " + labelsDestPath, e);
+            throw new IOException("Failed to save CoreML labels file: " + labelsDestPath, e);
         }
 
-        // Save model file
         try (InputStream in = modelFile.content(); OutputStream out = Files.newOutputStream(modelDestPath)) {
             in.transferTo(out);
         } catch (IOException e) {
-            // Clean up labels file if model save fails
             try {
                 Files.deleteIfExists(labelsDestPath);
                 logger.warn("Deleted labels file " + labelsDestPath + " due to model save failure.");
             } catch (IOException ignored) {
                 logger.error("Failed to delete labels file " + labelsDestPath + " after model save failure.", ignored);
             }
-            throw new IOException("Failed to save RKNN model file: " + modelDestPath, e);
+            throw new IOException("Failed to save CoreML model file: " + modelDestPath, e);
         }
-        logger.info("Successfully saved RKNN model " + modelFile.filename() + " and labels " + labelsFile.filename());
+        logger.info("Successfully saved CoreML model " + modelFile.filename() + " and labels " + labelsFile.filename());
     }
 
-    // --- Helper Methods --- //
-
     /**
-     * Parse RKNN model file name and return parsed info.
+     * Parse CoreML model file name and return parsed info.
+     *
+     * @param modelFileName the name of the model file (e.g., my_model-640-480-yolov8.mlmodel)
+     * @throws IllegalArgumentException if the model name does not follow the naming convention
+     * @return ParsedModelInfo containing components
      */
-    private ParsedModelInfo parseModelName(String modelFileName) throws IllegalArgumentException {
+    public ParsedModelInfo parseModelName(String modelFileName) throws IllegalArgumentException {
         Matcher modelMatcher = modelPattern.matcher(modelFileName);
 
         if (!modelMatcher.matches()) {
@@ -269,21 +244,26 @@ public class RknnFormatHandler implements ModelFormatHandler {
             return new ParsedModelInfo(baseName, width, height, versionString);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid width/height number in model name: " + modelFileName, e);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) { // Catch version parsing errors
              throw new IllegalArgumentException("Invalid version string in model name: " + modelFileName + " -> " + e.getMessage(), e);
         }
     }
 
     /**
      * Determines the model version enum based on the version string from the filename.
+     *
+     * @param versionString The version part of the filename (e.g., "yolov5s", "yolov8n", "yolov11")
+     * @return The corresponding CoreMLJNI.ModelVersion enum
+     * @throws IllegalArgumentException if the version string is unknown
      */
-    private static RknnJNI.ModelVersion parseVersionString(String versionString) throws IllegalArgumentException {
+    private static CoreMLJNI.ModelVersion parseVersionString(String versionString) throws IllegalArgumentException {
+        // Normalize by checking the start of the string
         if (versionString.startsWith("yolov5")) {
-            return RknnJNI.ModelVersion.YOLO_V5;
+            return CoreMLJNI.ModelVersion.YOLO_V5;
         } else if (versionString.startsWith("yolov8")) {
-            return RknnJNI.ModelVersion.YOLO_V8;
+            return CoreMLJNI.ModelVersion.YOLO_V8;
         } else if (versionString.startsWith("yolov11")) {
-            return RknnJNI.ModelVersion.YOLO_V11;
+            return CoreMLJNI.ModelVersion.YOLO_V11;
         } else {
             throw new IllegalArgumentException("Unknown model version string: " + versionString);
         }
@@ -304,6 +284,4 @@ public class RknnFormatHandler implements ModelFormatHandler {
         }
         return filename.substring(lastDot);
     }
-
-    // Removed old deriveLabelsName(String modelFileName, String modelExtension)
 } 

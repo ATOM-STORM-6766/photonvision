@@ -1,4 +1,4 @@
-package org.photonvision.model.format;
+package org.photonvision.model.manager;
 
 import io.javalin.http.UploadedFile;
 import java.io.File;
@@ -16,7 +16,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import org.opencv.core.Size;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
 import org.photonvision.coreml.CoreMLJNI;
@@ -24,9 +23,9 @@ import org.photonvision.model.vision.CoreMLModel;
 import org.photonvision.model.vision.Model;
 
 
-public class CoreMLPackageFormatHandler implements ModelFormatHandler {
+public class CoreMLPackageManager implements ModelManager {
 
-    private static final Logger logger = new Logger(CoreMLPackageFormatHandler.class, LogGroup.Config);
+    private static final Logger logger = new Logger(CoreMLPackageManager.class, LogGroup.Config);
     private static final String BACKEND_NAME = "COREML_PACKAGE";
     private static final String PRIMARY_EXTENSION = ".mlpackage";
     private static final String UPLOAD_EXTENSION = ".zip";
@@ -42,29 +41,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
     // Package Dir: name-width-height-version.mlpackage
      private static final Pattern packageDirPattern =
              Pattern.compile("^([a-zA-Z0-9._-]+)-(\\d+)-(\\d+)-(yolov(?:5|8|11)[nsmlx]*)\\.mlpackage$");
-
-
-    // Helper class to hold parsed name components
-    private static class ParsedModelInfo {
-        final String baseName;
-        final int width;
-        final int height;
-        final String versionString;
-        final CoreMLJNI.ModelVersion version;
-        final Size inputSize;
-        final String expectedPackageDirName; // e.g., name-w-h-v.mlpackage
-
-        ParsedModelInfo(String baseName, int width, int height, String versionString) {
-            this.baseName = baseName;
-            this.width = width;
-            this.height = height;
-            this.versionString = versionString;
-            this.version = parseVersionString(versionString); // Determine enum version
-            this.inputSize = new Size(width, height);
-            this.expectedPackageDirName = baseName + "-" + width + "-" + height + "-" + versionString + PRIMARY_EXTENSION;
-        }
-    }
-
 
     @Override
     public String getBackendName() {
@@ -89,7 +65,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
     @Override
     public boolean supportsPath(Path path) {
         if (path == null) return false;
-        // Check if it's a directory and matches the package naming convention
         return Files.isDirectory(path) && packageDirPattern.matcher(path.getFileName().toString()).matches();
     }
 
@@ -97,7 +72,7 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
     public boolean supportsUpload(String modelZipFileName, String labelsFileName) {
          if (modelZipFileName == null || labelsFileName == null) return false;
          try {
-             verifyNames(modelZipFileName, labelsFileName); // Use the stricter verifyNames
+             verifyNames(modelZipFileName, labelsFileName);
              return true;
          } catch (IllegalArgumentException e) {
              return false;
@@ -156,7 +131,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
                 "Model zip name ('" + modelZipFileName + ") and labels name ('" + labelsFileName + ") parts must match.");
         }
 
-        // Additionally parse and check numeric parts and version
         try {
             parseZipName(modelZipFileName);
         } catch (IllegalArgumentException e) {
@@ -176,7 +150,7 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
         // 1. Parse package directory name to get info
         ParsedModelInfo parsedInfo;
         try {
-            parsedInfo = parsePackageDirName(packageDirName);
+            parsedInfo = parseModelName(packageDirName);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Failed to parse package directory name: " + packageDirName, e);
         }
@@ -200,8 +174,7 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
         // 4. Create the CoreMLModel instance
         try {
-             // Updated to use unified CoreMLModel with isPackage=true
-             return new CoreMLModel(packagePath, true, labels, parsedInfo.version, parsedInfo.inputSize);
+             return new CoreMLModel(packagePath, true, labels, parseVersionString(parsedInfo.versionString), parsedInfo.inputSize);
         } catch (Exception e) {
              throw new IOException("Failed to instantiate CoreMLModel for " + packageDirName, e);
         }
@@ -209,25 +182,24 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
     @Override
     public void saveUploadedFiles(UploadedFile modelZipFile, UploadedFile labelsFile, File modelsDirectory) throws IOException {
-         // Ensure target directory exists
          ensureDirectoryExists(modelsDirectory);
 
          String modelZipFileName = modelZipFile.filename();
          String labelsFileName = labelsFile.filename();
 
-         // Verify names before saving
          try {
               verifyNames(modelZipFileName, labelsFileName);
          } catch (IllegalArgumentException e) {
               throw new IOException("Uploaded file names are invalid: " + e.getMessage(), e);
          }
 
-         // Parse info to get expected package directory name
-         ParsedModelInfo parsedInfo = parseZipName(modelZipFileName); // Already validated by verifyNames
+         ParsedModelInfo parsedInfo = parseZipName(modelZipFileName);
+
+         String expectedPackageDirName = parsedInfo.baseName + "-" + parsedInfo.width + "-" + parsedInfo.height + "-" + parsedInfo.versionString + PRIMARY_EXTENSION;
 
          Path labelsDestPath = modelsDirectory.toPath().resolve(labelsFileName);
-         Path zipDestPath = modelsDirectory.toPath().resolve(modelZipFileName); // Temporary path for the zip
-         Path packageDestPath = modelsDirectory.toPath().resolve(parsedInfo.expectedPackageDirName);
+         Path zipDestPath = modelsDirectory.toPath().resolve(modelZipFileName);
+         Path packageDestPath = modelsDirectory.toPath().resolve(expectedPackageDirName);
 
          logger.info("Saving CoreML Package files to: " + modelsDirectory.getAbsolutePath());
          logger.debug("Target Labels: " + labelsDestPath);
@@ -235,9 +207,8 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
          logger.debug("Temporary Zip: " + zipDestPath);
 
 
-         // --- Critical Section: Potential partial state ---
          boolean success = false;
-         Path createdPackageDir = null; // Track if directory was created for cleanup
+         Path createdPackageDir = null;
 
          try {
              // 1. Save labels file
@@ -259,7 +230,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
              // 3. Unzip the package
              logger.debug("Unzipping " + zipDestPath + " to " + packageDestPath + "...");
-             // Ensure target package dir doesn't exist or is empty (delete if necessary)
              if (Files.exists(packageDestPath)) {
                  logger.warn("Target package directory " + packageDestPath + " already exists. Deleting it before unzipping.");
                  try {
@@ -294,12 +264,11 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
              try {
                  Files.delete(zipDestPath);
              } catch (IOException e) {
-                 // This is not ideal, but the main operation succeeded. Log a warning.
                  logger.warn("Failed to delete temporary zip file after successful unzip: " + zipDestPath + " Error: " + e.getMessage());
              }
 
              success = true;
-             logger.info("Successfully saved CoreML package " + parsedInfo.expectedPackageDirName + " and labels " + labelsFileName);
+             logger.info("Successfully saved CoreML package " + expectedPackageDirName + " and labels " + labelsFileName);
 
          } finally {
              // Ensure cleanup if something unexpected happened after zip creation but before success
@@ -317,6 +286,17 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
          }
     }
 
+    /**
+     * Parse CoreML package directory name.
+     */
+    public ParsedModelInfo parseModelName(String modelDirName) throws IllegalArgumentException {
+        Matcher dirMatcher = packageDirPattern.matcher(modelDirName);
+        if (!dirMatcher.matches()) {
+            throw new IllegalArgumentException(
+                    "Package directory name '" + modelDirName + "' must follow the convention name-width-height-version" + PRIMARY_EXTENSION);
+        }
+        return parseMatcherGroups(dirMatcher);
+    }
 
     private void ensureDirectoryExists(File directory) throws IOException {
          if (!directory.exists()) {
@@ -351,7 +331,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
         Files.walk(path)
             .sorted(Comparator.reverseOrder())
             .map(Path::toFile)
-            // .peek(System.out::println) // uncomment to see which files are deleted
             .forEach(File::delete);
     }
 
@@ -378,19 +357,17 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
                     continue;
                 }
                 
-                Path newPath = zipSlipProtect(zipEntry, destDirectory); // Prevent Zip Slip vulnerability
+                Path newPath = zipSlipProtect(zipEntry, destDirectory);
                 if (zipEntry.isDirectory()) {
                     if (!Files.isDirectory(newPath)) {
                         Files.createDirectories(newPath);
                     }
                 } else {
-                    // Ensure parent directory exists for the file
                     Path parent = newPath.getParent();
                     if (parent != null && !Files.isDirectory(parent)) {
                         Files.createDirectories(parent);
                     }
 
-                    // Write file content
                     try (FileOutputStream fos = new FileOutputStream(newPath.toFile())) {
                         int len;
                         while ((len = zis.read(buffer)) > 0) {
@@ -406,17 +383,14 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
     /** Helper to prevent Zip Slip vulnerability. */
      private Path zipSlipProtect(ZipEntry zipEntry, Path targetDir) throws IOException {
-         // From https://snyk.io/research/zip-slip-vulnerability
          Path targetDirResolved = targetDir.resolve(zipEntry.getName());
 
-         // Make sure normalized path doesn't escape the target directory
          Path normalizePath = targetDirResolved.normalize();
          if (!normalizePath.startsWith(targetDir)) {
              throw new IOException("Bad zip entry: " + zipEntry.getName());
          }
          return normalizePath;
      }
-
 
     /**
      * Parse CoreML zip file name.
@@ -430,19 +404,9 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
          return parseMatcherGroups(zipMatcher);
     }
 
-     /**
-      * Parse CoreML package directory name.
+     /** 
+      * Common parsing logic for matched groups.
       */
-     private ParsedModelInfo parsePackageDirName(String packageDirName) throws IllegalArgumentException {
-         Matcher dirMatcher = packageDirPattern.matcher(packageDirName);
-         if (!dirMatcher.matches()) {
-             throw new IllegalArgumentException(
-                     "Package directory name '" + packageDirName + "' must follow the convention name-width-height-version" + PRIMARY_EXTENSION);
-         }
-         return parseMatcherGroups(dirMatcher);
-     }
-
-     /** Common parsing logic for matched groups. */
      private ParsedModelInfo parseMatcherGroups(Matcher matcher) throws IllegalArgumentException{
           try {
              String baseName = matcher.group(1);
@@ -454,8 +418,7 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
                  throw new IllegalArgumentException("Width and height must be positive integers.");
              }
 
-             // Validate version string via parseVersionString (duplicated logic as requested)
-             parseVersionString(versionString); // Throws if invalid
+             parseVersionString(versionString);
 
              return new ParsedModelInfo(baseName, width, height, versionString);
          } catch (NumberFormatException e) {
@@ -467,7 +430,6 @@ public class CoreMLPackageFormatHandler implements ModelFormatHandler {
 
     /**
      * Determines the model version enum based on the version string.
-     * NOTE: This logic is intentionally duplicated from CoreMLFileFormatHandler per user request.
      */
     private static CoreMLJNI.ModelVersion parseVersionString(String versionString) throws IllegalArgumentException {
         if (versionString.startsWith("yolov5")) {

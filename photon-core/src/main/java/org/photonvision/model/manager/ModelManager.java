@@ -1,4 +1,4 @@
-package org.photonvision.model.format;
+package org.photonvision.model.manager;
 
 import io.javalin.http.UploadedFile;
 import java.io.File;
@@ -6,13 +6,30 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.photonvision.model.vision.Model;
+import org.opencv.core.Size;
 
 /**
  * Interface defining the contract for handling a specific neural network model format.
  * Implementations of this interface encapsulate the logic for discovering, validating,
  * loading, and saving models of a particular type (e.g., RKNN files, CoreML packages).
  */
-public interface ModelFormatHandler {
+public interface ModelManager {
+
+    public static class ParsedModelInfo {
+        public final String baseName;
+        public final int width;
+        public final int height;
+        public final String versionString;
+        public final Size inputSize;
+
+        ParsedModelInfo(String baseName, int width, int height, String versionString) {
+            this.baseName = baseName;
+            this.width = width;
+            this.height = height;
+            this.versionString = versionString;
+            this.inputSize = new Size(width, height);
+        }
+    }
 
     /**
      * Data Transfer Object containing basic information about the model format for the frontend.
@@ -110,4 +127,12 @@ public interface ModelFormatHandler {
      * @return The Info record.
      */
     Info getInfo();
+
+    /**
+     * Parses the model file name and returns the parsed model info.
+     *
+     * @param modelFileName The model file name.
+     * @return The parsed model info.
+     */
+    ParsedModelInfo parseModelName(String modelFileName) throws IllegalArgumentException;
 } 

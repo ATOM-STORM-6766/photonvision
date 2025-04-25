@@ -39,10 +39,10 @@ import java.util.jar.JarFile;
 import org.photonvision.common.hardware.Platform;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
-import org.photonvision.model.format.CoreMLFileFormatHandler;
-import org.photonvision.model.format.CoreMLPackageFormatHandler;
-import org.photonvision.model.format.ModelFormatHandler;
-import org.photonvision.model.format.RknnFormatHandler;
+import org.photonvision.model.manager.CoreMLFileManager;
+import org.photonvision.model.manager.CoreMLPackageManager;
+import org.photonvision.model.manager.ModelManager;
+import org.photonvision.model.manager.RknnManager;
 import org.photonvision.model.vision.Model;
 
 /**
@@ -68,15 +68,15 @@ public class NeuralNetworkModelManager {
      */
     private NeuralNetworkModelManager() {
         // Initialize the list of format handlers based on platform
-        List<ModelFormatHandler> handlers = new ArrayList<>();
+        List<ModelManager> handlers = new ArrayList<>();
 
         if (Platform.isRK3588()) {
-            handlers.add(new RknnFormatHandler());
+            handlers.add(new RknnManager());
         }
 
         if (Platform.isMac()) {
-            handlers.add(new CoreMLFileFormatHandler());
-            handlers.add(new CoreMLPackageFormatHandler());
+            handlers.add(new CoreMLFileManager());
+            handlers.add(new CoreMLPackageManager());
         }
         // Add other handlers here conditionally or unconditionally
 
@@ -99,16 +99,16 @@ public class NeuralNetworkModelManager {
     private static final Logger logger = new Logger(NeuralNetworkModelManager.class, LogGroup.Config);
 
     // Use a list of handlers instead of the enum
-    private final List<ModelFormatHandler> formatHandlers;
+    private final List<ModelManager> formatHandlers;
 
     /**
      * Retrieves the list of supported backend format information.
      *
      * @return the list of backend info objects
      */
-    public List<ModelFormatHandler.Info> getSupportedBackends() {
+    public List<ModelManager.Info> getSupportedBackends() {
         return formatHandlers.stream()
-                           .map(ModelFormatHandler::getInfo)
+                           .map(ModelManager::getInfo)
                            .toList();
     }
 
@@ -175,26 +175,21 @@ public class NeuralNetworkModelManager {
             return Optional.empty();
         }
 
-        // Try to get models from the first supported handler
-        // This assumes the first handler in the list is the 'preferred' or most common one
-        ModelFormatHandler defaultHandler = formatHandlers.get(0);
+        ModelManager defaultHandler = formatHandlers.get(0);
         List<Model> backendModels = models.get(defaultHandler.getBackendName());
 
         if (backendModels == null || backendModels.isEmpty()) {
-            // Fallback: try finding the first non-empty list if the preferred one is empty
-            // Explicitly map to List<Model> to satisfy type checker
             Optional<List<Model>> firstList = models.values().stream()
                                                    .filter(list -> !list.isEmpty())
-                                                   .map(list -> (List<Model>) list) // Cast ArrayList to List
+                                                   .map(list -> (List<Model>) list)
                                                    .findFirst();
             if (firstList.isPresent()) {
                 backendModels = firstList.get();
             } else {
-                return Optional.empty(); // No models available at all
+                return Optional.empty();
             }
         }
 
-        // Return the first model in the (potentially fallback) list
         return backendModels.stream().findFirst();
     }
 
@@ -206,7 +201,7 @@ public class NeuralNetworkModelManager {
     public void discoverModels(File modelsDirectory) {
         logger.info("Discovering models in: " + modelsDirectory.getAbsolutePath());
         // Log handlers instead of backends
-        logger.info("Using format handlers: " + formatHandlers.stream().map(ModelFormatHandler::getBackendName).collect(Collectors.joining(", ")));
+        logger.info("Using format handlers: " + formatHandlers.stream().map(ModelManager::getBackendName).collect(Collectors.joining(", ")));
 
         if (!modelsDirectory.exists()) {
             logger.error("Models folder " + modelsDirectory.getAbsolutePath() + " does not exist.");
@@ -214,34 +209,28 @@ public class NeuralNetworkModelManager {
             return;
         }
 
-        // Use String (backend name) as key
         Map<String, ArrayList<Model>> discoveredModels = new HashMap<>();
-        // Keep track of all processed paths to avoid duplicates
         List<Path> processedPaths = new ArrayList<>();
 
         try {
-            // 1. First collect all valid paths 
             List<Path> allPaths = Files.walk(modelsDirectory.toPath())
-                                      .filter(path -> !path.equals(modelsDirectory.toPath())) // Skip root dir itself
+                                      .filter(path -> !path.equals(modelsDirectory.toPath()))
                                       .collect(Collectors.toList());
             
             // 2. Process paths with each handler in order of preference
-            for (ModelFormatHandler handler : formatHandlers) {
+            for (ModelManager handler : formatHandlers) {
                 String backendName = handler.getBackendName();
                 
-                // Process each path that hasn't been processed yet and is supported by this handler
                 for (Path path : allPaths) {
                     if (processedPaths.contains(path)) {
-                        continue; // Skip paths we've already processed
+                        continue;
                     }
                     
                     if (handler.supportsPath(path)) {
                         logger.info("Path " + path + " supported by handler " + backendName);
                         try {
                             Model model = handler.loadFromPath(path, modelsDirectory);
-                            // Add to discovered models for this backend
                             discoveredModels.computeIfAbsent(backendName, k -> new ArrayList<>()).add(model);
-                            // Mark this path as processed
                             processedPaths.add(path);
                             
                             logger.info("Successfully loaded model: " + model.getName() + " for backend " + backendName);
@@ -255,14 +244,12 @@ public class NeuralNetworkModelManager {
             logger.error("Failed to walk models directory: " + modelsDirectory.getAbsolutePath(), e);
         }
 
-        // Sort models within each backend list by name
         discoveredModels.forEach(
                 (backendName, backendModels) ->
                         backendModels.sort(Comparator.comparing(Model::getName)));
 
-        this.models = discoveredModels; // Update the instance variable
+        this.models = discoveredModels;
 
-        // Log discovered models
         StringBuilder sb = new StringBuilder();
         sb.append("Discovered models: ");
         if (this.models.isEmpty()) {
@@ -270,7 +257,7 @@ public class NeuralNetworkModelManager {
         } else {
             this.models.forEach(
                     (backendName, backendModels) -> {
-                        sb.append(backendName).append(" ["); // Use backendName
+                        sb.append(backendName).append(" [");
                         if (backendModels.isEmpty()) {
                              sb.append("None");
                         } else {
@@ -340,9 +327,9 @@ public class NeuralNetworkModelManager {
      */
     public void handleUpload(UploadedFile modelFile, UploadedFile labelsFile, File modelsDirectory)
             throws IllegalArgumentException, IOException {
-        ModelFormatHandler handler = null;
+        ModelManager handler = null;
         // Iterate through handlers
-        for (ModelFormatHandler backendHandler : formatHandlers) {
+        for (ModelManager backendHandler : formatHandlers) {
             if (backendHandler.supportsUpload(modelFile.filename(), labelsFile.filename())) {
                 handler = backendHandler;
                 break;
@@ -350,9 +337,8 @@ public class NeuralNetworkModelManager {
         }
 
         if (handler == null) {
-            // Construct a helpful error message about supported types using handlers
             String supportedUploadTypes = formatHandlers.stream()
-                                                    .map(ModelFormatHandler::getUploadAcceptType)
+                                                    .map(ModelManager::getUploadAcceptType)
                                                     .distinct()
                                                     .collect(Collectors.joining(", "));
             throw new IOException(
@@ -370,13 +356,11 @@ public class NeuralNetworkModelManager {
         }
 
         // 2. Verify Names (strict naming convention check)
-        // This might throw IllegalArgumentException, which is declared
         handler.verifyNames(modelFile.filename(), labelsFile.filename());
         logger.info("Filename verification passed for " + modelFile.filename());
 
 
         // 3. Save Uploaded Files (copy or unzip)
-        // This might throw IOException
         handler.saveUploadedFiles(modelFile, labelsFile, modelsDirectory);
         logger.info("Successfully saved files for " + modelFile.filename());
 

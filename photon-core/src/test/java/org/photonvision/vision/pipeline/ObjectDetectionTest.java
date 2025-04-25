@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.photonvision.model.vision.RknnModel;
+import org.photonvision.model.manager.RknnManager;
 
 public class ObjectDetectionTest {
     private static LinkedList<String[]> passNames =
@@ -98,7 +98,7 @@ public class ObjectDetectionTest {
     @ParameterizedTest
     @MethodSource("verifyPassNameProvider")
     public void testRKNNVerificationPass(String[] names) {
-        RknnModel.verifyNames(names[0], names[1]);
+        new RknnManager().verifyNames(names[0], names[1]);
     }
 
     // // Test the model name validation for names that ought to fail
@@ -106,14 +106,15 @@ public class ObjectDetectionTest {
     @MethodSource("verifyFailNameProvider")
     public void testRNNVerificationFail(String[] names) {
         assertThrows(
-                IllegalArgumentException.class, () -> RknnModel.verifyNames(names[0], names[1]));
+                IllegalArgumentException.class, () -> new RknnManager().verifyNames(names[0], names[1]));
     }
 
     // Test the model name parsing
     @ParameterizedTest
     @MethodSource("parseNameProvider")
     public void testRKNNNameParsing(String[] expected, String name) {
-        String[] parsed = RknnModel.parseModelName(name);
+        var parsedModelInfo = new RknnManager().parseModelName(name);
+        String[] parsed = {parsedModelInfo.baseName, String.valueOf(parsedModelInfo.width), String.valueOf(parsedModelInfo.height), parsedModelInfo.versionString};
         assertArrayEquals(expected, parsed);
     }
 

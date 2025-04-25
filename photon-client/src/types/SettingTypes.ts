@@ -399,16 +399,3 @@ export enum RobotOffsetType {
   DualFirst = 2,
   DualSecond = 3
 }
-
-export const ObjectDetectionBackend = {
-  RKNN: {
-    label: "RKNN",
-    accept: ".rknn",
-    key: "rknn"
-  },
-  COREML: {
-    label: "MLModel",
-    accept: ".mlmodel",
-    key: "mlmodel"
-  }
-};

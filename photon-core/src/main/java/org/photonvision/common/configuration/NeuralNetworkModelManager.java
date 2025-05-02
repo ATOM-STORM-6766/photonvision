@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 import org.photonvision.common.hardware.Platform;
 import org.photonvision.common.logging.LogGroup;
 import org.photonvision.common.logging.Logger;
+import org.photonvision.model.manager.CoreMLFileManager;
+import org.photonvision.model.manager.CoreMLPackageManager;
 import org.photonvision.model.manager.ModelManager;
 import org.photonvision.model.manager.RknnManager;
 import org.photonvision.model.vision.Model;
@@ -70,6 +72,11 @@ public class NeuralNetworkModelManager {
 
         if (Platform.isRK3588()) {
             managers.add(new RknnManager());
+        }
+
+        if (Platform.isMac()) {
+            managers.add(new CoreMLFileManager());
+            managers.add(new CoreMLPackageManager());
         }
 
         this.modelManagers = Collections.unmodifiableList(managers);
@@ -318,7 +325,7 @@ public class NeuralNetworkModelManager {
      * Handles the uploaded model and labels files: validates them, saves them, and re-discovers
      * models.
      *
-     * @param modelFile The uploaded model file (.rknn).
+     * @param modelFile The uploaded model file (.rknn, .mlmodel, or .zip for .mlpackage).
      * @param labelsFile The uploaded labels file (.txt).
      * @param modelsDirectory The directory where models should be saved.
      * @throws IllegalArgumentException If filenames are invalid or don't match conventions.

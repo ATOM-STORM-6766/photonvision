@@ -103,16 +103,29 @@ const supportedModels = computed(() => {
                 <br /><br />
                 Naming convention should be
                 <code>name-verticalResolution-horizontalResolution-yolovXXX.backend_extension</code>, where
-                <code>backend_extension</code> is typically <code>.rknn</code>. The <code>name</code> should only
-                include alphanumeric characters, periods, and underscores. <br /><br />
-                The labels file ought to have the same name as the model file, with
+                <code>backend_extension</code> is typically <code>.rknn</code> or <code>.mlmodel</code>. For ML
+                Packages, the uploaded zip file should be named
+                <code>name-verticalResolution-horizontalResolution-yolovXXX.mlpackage.zip</code>. The
+                <code>name</code> should only include alphanumeric characters, periods, and underscores. <br /><br />
+                The labels file ought to have the same name as the model file (or zip file for packages), with
                 <code>-labels.txt</code> appended to the end. For example, if the model file is
                 <code>note-640-640-yolov5s.rknn</code>, the labels file should be named
-                <code>note-640-640-yolov5s-labels.txt</code>. Note that:
+                <code>note-640-640-yolov5s-labels.txt</code>. If the package zip is
+                <code>mynote-640-640-yolov8.mlpackage.zip</code>, the labels file should be
+                <code>mynote-640-640-yolov8-labels.txt</code>. <br /><br />
+                Note that:
                 <ul>
                   <li>
                     For RKNN: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.rknn` format
                     for RK3588 CPUs are supported!
+                  </li>
+                  <li>
+                    For MLModel: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.mlmodel`
+                    format for Mac series CPUs are supported!
+                  </li>
+                  <li>
+                    For ML Packages (.mlpackage): Upload the model as a <strong><code>.zip</code></strong> file. Only
+                    640x640 YOLOv5, YOLOv8, and YOLOv11 models are currently supported.
                   </li>
                 </ul>
                 <div>

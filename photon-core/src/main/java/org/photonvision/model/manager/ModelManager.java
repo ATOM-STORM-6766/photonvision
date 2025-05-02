@@ -52,14 +52,15 @@ public interface ModelManager {
 
     /**
      * Gets the unique identifier name for this backend model manager. This name is used internally
-     * and potentially in configuration/logging. Example: "RKNN"
+     * and potentially in configuration/logging. Example: "RKNN", "COREML_FILE", "COREML_PACKAGE"
      *
      * @return The backend name string.
      */
     String getBackendName();
 
     /**
-     * Gets the string used for the HTML file input 'accept' attribute. Example: ".rknn"
+     * Gets the string used for the HTML file input 'accept' attribute. Example: ".rknn", ".mlmodel",
+     * ".zip"
      *
      * @return The accept type string.
      */

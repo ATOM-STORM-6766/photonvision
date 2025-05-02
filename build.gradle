@@ -14,6 +14,11 @@ plugins {
     id "org.hidetake.ssh" version "2.11.2" apply false
 }
 
+wpi.maven.useLocal = false
+wpi.maven.useFrcMavenLocalDevelopment = true
+wpi.versions.wpilibVersion = '2025.424242.+'
+wpi.versions.wpimathVersion = '2025.424242.+'
+
 allprojects {
     repositories {
         mavenCentral()
@@ -21,6 +26,7 @@ allprojects {
         maven { url = "https://maven.photonvision.org/releases" }
         maven { url = "https://maven.photonvision.org/snapshots" }
         maven { url = "https://jogamp.org/deployment/maven/" }
+        maven { url = "https://dl.cloudsmith.io/public/atomstorm/coreml-jni-snapshots/maven/" }
     }
     wpilibRepositories.addAllReleaseRepositories(it)
     wpilibRepositories.addAllDevelopmentRepositories(it)
@@ -33,13 +39,14 @@ ext.allOutputsFolder = file("$project.buildDir/outputs")
 apply from: "versioningHelper.gradle"
 
 ext {
-    wpilibVersion = "2025.3.2"
+    wpilibVersion = "2025.424242.+"
     wpimathVersion = wpilibVersion
     openCVYear = "2025"
     openCVversion = "4.10.0-3"
     javalinVersion = "5.6.2"
     libcameraDriverVersion = "v2025.0.3"
     rknnVersion = "dev-v2025.0.0-1-g33b6263"
+    coremlVersion = "dev-v2025.0.0-2-gb0055ed"
     frcYear = "2025"
     mrcalVersion = "v2025.0.0";
 

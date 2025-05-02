@@ -36,6 +36,12 @@ dependencies {
     implementation("org.photonvision:rknn_jni-java:$rknnVersion") {
         transitive = false
     }
+    implementation("org.atomstorm:coreml_jni-jni:$coremlVersion:osxuniversal") {
+        transitive = false
+    }
+    implementation("org.atomstorm:coreml_jni-java:$coremlVersion") {
+        transitive = false
+    }
     implementation("org.photonvision:photon-libcamera-gl-driver-jni:$libcameraDriverVersion:linuxarm64") {
         transitive = false
     }

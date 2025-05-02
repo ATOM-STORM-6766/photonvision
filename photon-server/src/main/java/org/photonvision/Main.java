@@ -39,6 +39,7 @@ import org.photonvision.common.logging.PvCSCoreLogger;
 import org.photonvision.common.networking.NetworkManager;
 import org.photonvision.common.util.TestUtils;
 import org.photonvision.jni.PhotonTargetingJniLoader;
+import org.photonvision.model.jni.CoreMLDetectorJNI;
 import org.photonvision.model.jni.RknnDetectorJNI;
 import org.photonvision.mrcal.MrCalJNILoader;
 import org.photonvision.raspi.LibCameraJNILoader;
@@ -244,6 +245,16 @@ public class Main {
             logger.warn(
                     "Failed to load mrcal-JNI! Camera calibration will fall back to opencv\n"
                             + e.getMessage());
+        }
+        try {
+            if (Platform.isMac()) {
+                CoreMLDetectorJNI.forceLoad();
+                logger.info("CoreMLDetectorJNI loaded");
+            } else {
+                logger.error("Platform does not support CoreML based machine learning!");
+            }
+        } catch (IOException e) {
+            logger.error("Failed to load coreml-JNI!", e);
         }
 
         CVMat.enablePrint(false);

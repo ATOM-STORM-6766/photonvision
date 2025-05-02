@@ -15,9 +15,9 @@ plugins {
 }
 
 wpi.maven.useLocal = false
-wpi.maven.useFrcMavenLocalDevelopment = true
-wpi.versions.wpilibVersion = '2025.424242.+'
-wpi.versions.wpimathVersion = '2025.424242.+'
+wpi.maven.useDevelopment = true
+wpi.versions.wpilibVersion = '2025.3.2-32-g02de5f7'
+wpi.versions.wpimathVersion = '2025.3.2-32-g02de5f7'
 
 allprojects {
     repositories {
@@ -39,7 +39,7 @@ ext.allOutputsFolder = file("$project.buildDir/outputs")
 apply from: "versioningHelper.gradle"
 
 ext {
-    wpilibVersion = "2025.424242.+"
+    wpilibVersion = "2025.3.2-32-g02de5f7"
     wpimathVersion = wpilibVersion
     openCVYear = "2025"
     openCVversion = "4.10.0-3"

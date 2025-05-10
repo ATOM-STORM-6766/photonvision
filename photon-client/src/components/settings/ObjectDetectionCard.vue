@@ -1,19 +1,43 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, inject } from "vue";
 import axios from "axios";
 import { useStateStore } from "@/stores/StateStore";
 import { useSettingsStore } from "@/stores/settings/GeneralSettingsStore";
+import type { NeuralNetworkBackendInfo } from "@/types/SettingTypes";
 
 const showImportDialog = ref(false);
-const importRKNNFile = ref<File | null>(null);
+const importModelFile = ref<File | null>(null);
 const importLabelsFile = ref<File | null>(null);
 
-// TODO gray out the button when model is uploading
+// Reset all file inputs when dialog opens
+const resetImportFiles = () => {
+  importModelFile.value = null;
+  importLabelsFile.value = null;
+};
+
+const settingsStore = useSettingsStore();
+
+const modelAccept = computed(() => {
+  // Check if supportedBackends is available and is an array
+  if (!settingsStore.general.supportedBackends || !Array.isArray(settingsStore.general.supportedBackends)) {
+    console.warn("supportedBackends not available or not an array");
+    return ""; // Provide a sensible default
+  }
+
+  const accepts = (settingsStore.general.supportedBackends as NeuralNetworkBackendInfo[])
+    .map((backend) => backend.uploadAcceptType)
+    .filter(Boolean)
+    .filter((value, index, self) => self.indexOf(value) === index)
+    .join(",");
+
+  return accepts;
+});
+
 const handleImport = async () => {
-  if (importRKNNFile.value === null || importLabelsFile.value === null) return;
+  if (!importModelFile.value || !importLabelsFile.value) return;
 
   const formData = new FormData();
-  formData.append("rknn", importRKNNFile.value);
+  formData.append("model", importModelFile.value);
   formData.append("labels", importLabelsFile.value);
 
   useStateStore().showSnackbarMessage({
@@ -52,65 +76,73 @@ const handleImport = async () => {
     });
 
   showImportDialog.value = false;
-
-  importRKNNFile.value = null;
-  importLabelsFile.value = null;
+  resetImportFiles();
 };
 
-// Filters out models that are not supported by the current backend, and returns a flattened list.
 const supportedModels = computed(() => {
-  const { availableModels, supportedBackends } = useSettingsStore().general;
-  return supportedBackends.flatMap((backend) => availableModels[backend] || []);
+  const { availableModels, supportedBackends } = settingsStore.general;
+  return supportedBackends.flatMap((backend) => availableModels[backend.name] || []);
 });
 </script>
 
 <template>
-  <v-card dark class="mb-3" style="background-color: #006492">
+  <v-card class="mb-3" style="background-color: #006492">
     <v-card-title class="pa-6">Object Detection</v-card-title>
     <div class="pa-6 pt-0">
       <v-row>
         <v-col cols="12 ">
           <v-btn color="secondary" class="justify-center" @click="() => (showImportDialog = true)">
-            <v-icon left class="open-icon"> mdi-import </v-icon>
+            <v-icon start class="open-icon"> mdi-import </v-icon>
             <span class="open-label">Import New Model</span>
           </v-btn>
-          <v-dialog
-            v-model="showImportDialog"
-            width="600"
-            @input="
-              () => {
-                importRKNNFile = null;
-                importLabelsFile = null;
-              }
-            "
-          >
+          <v-dialog v-model="showImportDialog" width="600" @update:modelValue="resetImportFiles">
             <v-card color="primary" dark>
               <v-card-title>Import New Object Detection Model</v-card-title>
               <v-card-text>
-                Upload a new object detection model to this device that can be used in a pipeline. Naming convention
-                should be <code>name-verticalResolution-horizontalResolution-yolovXXX</code>. The
-                <code>name</code> should only include alphanumeric characters, periods, and underscores. Additionally,
-                the labels file ought to have the same name as the RKNN file, with <code>-labels</code> appended to the
-                end. For example, if the RKNN file is named <code>note-640-640-yolov5s.rknn</code>, the labels file
-                should be named <code>note-640-640-yolov5s-labels.txt</code>. Note that ONLY 640x640 YOLOv5, YOLOv8, and
-                YOLOv11 models trained and converted to `.rknn` format for RK3588 CPUs are currently supported!
-                <v-row class="mt-6 ml-4 mr-8">
-                  <v-file-input v-model="importRKNNFile" label="RKNN File" accept=".rknn" />
-                </v-row>
-                <v-row class="mt-6 ml-4 mr-8">
-                  <v-file-input v-model="importLabelsFile" label="Labels File" accept=".txt" />
-                </v-row>
+                Upload a new object detection model to this device that can be used in a pipeline.
+                <br /><br />
+                Naming convention should be
+                <code>name-verticalResolution-horizontalResolution-yolovXXX.backend_extension</code>, where
+                <code>backend_extension</code> is typically <code>.rknn</code> or <code>.mlmodel</code>. For ML
+                Packages, the uploaded zip file should be named
+                <code>name-verticalResolution-horizontalResolution-yolovXXX.mlpackage.zip</code>. The
+                <code>name</code> should only include alphanumeric characters, periods, and underscores. <br /><br />
+                The labels file ought to have the same name as the model file (or zip file for packages), with
+                <code>-labels.txt</code> appended to the end. For example, if the model file is
+                <code>note-640-640-yolov5s.rknn</code>, the labels file should be named
+                <code>note-640-640-yolov5s-labels.txt</code>. If the package zip is
+                <code>mynote-640-640-yolov8.mlpackage.zip</code>, the labels file should be
+                <code>mynote-640-640-yolov8-labels.txt</code>. <br /><br />
+                Note that:
+                <ul>
+                  <li>
+                    For RKNN: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.rknn` format
+                    for RK3588 CPUs are supported!
+                  </li>
+                  <li>
+                    For MLModel: ONLY 640x640 YOLOv5, YOLOv8, and YOLOv11 models trained and converted to `.mlmodel`
+                    format for Mac series CPUs are supported!
+                  </li>
+                  <li>
+                    For ML Packages (.mlpackage): Upload the model as a <strong><code>.zip</code></strong> file. Only
+                    640x640 YOLOv5, YOLOv8, and YOLOv11 models are currently supported.
+                  </li>
+                </ul>
+                <div>
+                  <v-row class="mt-6 ml-4 mr-8">
+                    <v-file-input v-model="importModelFile" label="Model File" :accept="modelAccept" />
+                  </v-row>
+                  <v-row class="mt-6 ml-4 mr-8">
+                    <v-file-input v-model="importLabelsFile" label="Labels File" accept=".txt" />
+                  </v-row>
+                </div>
                 <v-row
                   class="mt-12 ml-8 mr-8 mb-1"
                   style="display: flex; align-items: center; justify-content: center"
                   align="center"
                 >
-                  <v-btn
-                    color="secondary"
-                    :disabled="importRKNNFile === null || importLabelsFile === null"
-                    @click="handleImport"
-                  >
-                    <v-icon left class="open-icon"> mdi-import </v-icon>
+                  <v-btn color="secondary" :disabled="!importModelFile || !importLabelsFile" @click="handleImport">
+                    <v-icon start class="open-icon"> mdi-import </v-icon>
                     <span class="open-label">Import Object Detection Model</span>
                   </v-btn>
                 </v-row>
@@ -121,7 +153,7 @@ const supportedModels = computed(() => {
       </v-row>
       <v-row>
         <v-col cols="12">
-          <v-simple-table fixed-header height="100%" dense dark>
+          <v-table fixed-header height="100%" density="compact" dark>
             <thead style="font-size: 1.25rem">
               <tr>
                 <th class="text-left">Available Models</th>
@@ -132,7 +164,7 @@ const supportedModels = computed(() => {
                 <td>{{ model }}</td>
               </tr>
             </tbody>
-          </v-simple-table>
+          </v-table>
         </v-col>
       </v-row>
     </div>
@@ -151,7 +183,7 @@ const supportedModels = computed(() => {
     display: none;
   }
 }
-.v-data-table {
+.v-table {
   width: 100%;
   height: 100%;
   text-align: center;

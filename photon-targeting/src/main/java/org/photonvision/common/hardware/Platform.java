@@ -70,7 +70,7 @@ public enum Platform {
 
     // Completely unsupported
     WINDOWS_32("Windows x86", Platform::getUnknownModel, "windowsx64", false, OSType.WINDOWS, false),
-    MACOS("Mac OS", Platform::getUnknownModel, "osxuniversal", false, OSType.MACOS, false),
+    MACOS("Mac OS", Platform::getUnknownModel, "osxuniversal", false, OSType.MACOS, true),
     LINUX_ARM32(
             "Linux ARM32",
             Platform::getUnknownModel,
@@ -118,6 +118,10 @@ public enum Platform {
     // Checks specifically if unix shell and API are supported
     public static boolean isLinux() {
         return currentPlatform.osType == OSType.LINUX;
+    }
+
+    public static boolean isMac() {
+        return currentPlatform.osType == OSType.MACOS;
     }
 
     public static boolean isRK3588() {

@@ -833,6 +833,14 @@ public class RequestHandler {
                                     logger.error("Could not restart device!", e);
                                     System.exit(0);
                                 }
+                            } else if (Platform.isMac()) {
+                                try {
+                                    new ShellExec().executeBashCommand("killall photonvision");
+                                    new ShellExec().executeBashCommand("open /Applications/PhotonVision.app");
+                                } catch (IOException e) {
+                                    logger.error("Could not restart device!", e);
+                                    System.exit(0);
+                                }
                             } else {
                                 System.exit(0);
                             }

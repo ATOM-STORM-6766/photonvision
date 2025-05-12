@@ -156,7 +156,15 @@ public class HardwareManager {
                 logger.error("Could not restart device!", e);
                 return false;
             }
+        } else if (Platform.isMac()) {
+            try {
+                return shellExec.executeBashCommand("sudo reboot") == 0;
+            } catch (IOException e) {
+                logger.error("Could not restart device!", e);
+                return false;
+            }
         }
+        
         try {
             return shellExec.executeBashCommand(hardwareConfig.restartHardwareCommand()) == 0;
         } catch (IOException e) {

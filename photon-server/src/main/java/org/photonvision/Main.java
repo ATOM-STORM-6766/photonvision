@@ -39,7 +39,8 @@ import org.photonvision.common.logging.PvCSCoreLogger;
 import org.photonvision.common.networking.NetworkManager;
 import org.photonvision.common.util.TestUtils;
 import org.photonvision.jni.PhotonTargetingJniLoader;
-import org.photonvision.jni.RknnDetectorJNI;
+import org.photonvision.model.jni.CoreMLDetectorJNI;
+import org.photonvision.model.jni.RknnDetectorJNI;
 import org.photonvision.mrcal.MrCalJNILoader;
 import org.photonvision.raspi.LibCameraJNILoader;
 import org.photonvision.server.Server;
@@ -184,7 +185,8 @@ public class Main {
             logger.error("Failed to parse command-line options!", e);
         }
 
-        // We don't want to trigger an exit in test mode or smoke test. This is specifically for MacOS.
+        // We don't want to trigger an exit in test mode or smoke test. This is
+        // specifically for MacOS.
         if (!(Platform.isSupported() || isSmoketest || isTestMode)) {
             logger.error("This platform is unsupported!");
             System.exit(1);
@@ -244,6 +246,16 @@ public class Main {
                     "Failed to load mrcal-JNI! Camera calibration will fall back to opencv\n"
                             + e.getMessage());
         }
+        try {
+            if (Platform.isMac()) {
+                CoreMLDetectorJNI.forceLoad();
+                logger.info("CoreMLDetectorJNI loaded");
+            } else {
+                logger.error("Platform does not support CoreML based machine learning!");
+            }
+        } catch (IOException e) {
+            logger.error("Failed to load coreml-JNI!", e);
+        }
 
         CVMat.enablePrint(false);
         PipelineProfiler.enablePrint(false);
@@ -289,7 +301,8 @@ public class Main {
             System.exit(0);
         }
 
-        // todo - should test mode just add test mode sources, but still allow local usb cameras to be
+        // todo - should test mode just add test mode sources, but still allow local usb
+        // cameras to be
         // added?
         if (!isTestMode) {
             logger.debug("Loading VisionSourceManager...");

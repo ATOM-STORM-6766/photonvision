@@ -28,6 +28,7 @@ import org.photonvision.common.hardware.Platform;
 import org.photonvision.common.hardware.metrics.cmds.CmdBase;
 import org.photonvision.common.hardware.metrics.cmds.FileCmds;
 import org.photonvision.common.hardware.metrics.cmds.LinuxCmds;
+import org.photonvision.common.hardware.metrics.cmds.MacOSCmds;
 import org.photonvision.common.hardware.metrics.cmds.PiCmds;
 import org.photonvision.common.hardware.metrics.cmds.RK3588Cmds;
 import org.photonvision.common.logging.LogGroup;
@@ -51,6 +52,8 @@ public class MetricsManager {
             cmds = new RK3588Cmds(); // RK3588 chipset hardcoded command set
         } else if (Platform.isLinux()) {
             cmds = new LinuxCmds(); // Linux/Unix platforms assume a nominal command set
+        } else if (Platform.isMac()) {
+            cmds = new MacOSCmds(); // macOS command set
         } else {
             cmds = new CmdBase(); // default - base has no commands
         }
